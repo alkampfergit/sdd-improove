@@ -41,13 +41,17 @@ Read in order:
 1. `.specify/memory/constitution.md` — the base rules.
 2. `.specify/memory/adrs/*.md` — every ADR with `Status: Accepted`. Skip `Proposed`, `Rejected`, and `Superseded` ADRs; they are not in force.
 
-For each Accepted ADR, note which constitution clauses it amends. The effective rule-set is: constitution as written, with amendments from Accepted ADRs applied.
+For each Accepted ADR, note which constitution clauses it amends or which constitution-silent gaps it establishes as precedent. The effective rule-set is: constitution as written, with Accepted ADR amendments and Accepted ADR gap-filling decisions applied.
 
 State the rule-set explicitly to the user before checking — they need to see which ADRs you considered in force, so they can correct you if an ADR is in the wrong state.
 
+When the target artifact is an ADR, audit it as a governance instrument against that rule-set. Do **not** treat the ADR's proposed decision itself as a violation merely because it differs from the pre-ADR constitution; the question is whether the ADR correctly captures a real amendment or gap-filling decision.
+
 ### Step 3 — Walk the artifact for findings
 
-Check each constitution clause and each artifact element. Produce findings in three categories:
+Check each constitution clause and each artifact element. First branch by artifact type.
+
+For `spec.md`, `plan.md`, and `tasks.md`, produce findings in these three categories:
 
 **Category A — Direct violations.** The artifact contradicts a constitution Principle, Forbidden pattern, Stack rule, or Testing standard. Example: a task that puts DB calls in a route handler violates layered architecture.
 
@@ -58,6 +62,16 @@ Check each constitution clause and each artifact element. Produce findings in th
   - For plan.md: every module, endpoint, dependency, and design decision should cite the FR/SC it serves. Untraced design is suspect.
   - For tasks.md: every task's acceptance test should assert behavior tied to an FR/SC or to scaffolding the plan explicitly mandates. Untraced assertions are suspect.
   - "Good hygiene" patterns (health endpoints, SPA fallback, premature placeholders, `.keep` files, defensive helpers) are the most common form. Be specific in the finding: name the artifact location and the spec citation that is missing.
+
+For ADR files, use these three categories instead:
+
+**Category A — ADR process violations.** The ADR fails the project's governance rules or its required structure. Examples: the ADR records more than one decision; the `## Decision` section does not state a crisp decision; an `Accepted` ADR says it amends the constitution but the constitution was not updated/cited.
+
+**Category B — Unsupported amendment or gap claim.** The ADR says it amends a clause or fills a gap, but it does not identify the touched clause/gap, or the effective rule-set already covers the decision without needing an ADR. Example: the ADR says "No constitution impact — fills a gap" even though the constitution already names that stack choice.
+
+**Category C — Speculative or bundled ADR scope.** The ADR records a future maybe-decision, bundles unrelated decisions, or has no concrete trigger forcing the decision now. Example: one ADR says "switch to Postgres and later add Redis".
+
+When auditing an ADR, do not flag the decision merely because it differs from the current constitution. Instead, check whether the ADR is the correct, minimal, traceable mechanism for changing or extending the rule-set.
 
 Findings table format:
 
@@ -79,11 +93,23 @@ If you find **zero issues**, say so explicitly — that's a useful finding and y
 
 Show the user the full table. Then walk through findings **one at a time** — do not bulk-confirm.
 
-For each finding, present the three options via `AskUserQuestion`:
+For each finding, present options via `AskUserQuestion` based on the finding type:
 
-1. **Fix artifact** — revise the artifact to remove or correct the issue. You apply the edit after confirmation.
-2. **Write ADR** — the deviation is legitimate and should be formalized. Hand off to the `adr` skill, which writes a Proposed ADR and awaits Accept/Reject. (This path only applies to Category A and B findings; speculative additions are almost never ADR territory — they're just removed.)
-3. **Accept with rationale** — the user judges the finding a false positive or accepts the cost. Record the rationale in your hand-off summary. Do not edit the artifact.
+- **Category A or B on `spec.md`, `plan.md`, or `tasks.md`:**
+  1. **Fix artifact** — revise the artifact to remove or correct the issue. You apply the edit after confirmation.
+  2. **Write ADR** — the deviation is legitimate and should be formalized. Hand off to the `adr` skill, which writes a Proposed ADR and awaits Accept/Reject.
+  3. **Dismiss as false positive** — only if the artifact already complies and you can point to the exact clause, Accepted ADR, or spec citation that clears it. This is not a path for keeping a real violation or silent deviation without change.
+
+- **Category C on `spec.md`, `plan.md`, or `tasks.md`:**
+  1. **Fix artifact** — remove or tighten the speculative content.
+  2. **Dismiss as traced / not speculative** — only if you can point to the exact FR/SC or plan requirement that justifies it.
+
+- **ADR findings:**
+  1. **Fix ADR** — revise the ADR so it correctly captures one decision, its trigger, and its constitution impact.
+  2. **Dismiss as false positive** — only if the ADR already satisfies the governance rule you cited.
+  3. **Return to triggering artifact** — if the ADR is fine but it exposed an unresolved problem in the plan/tasks artifact that needs to be fixed or formalized there.
+
+There is no "accept and keep the noncompliant artifact" path for a real Category A or B finding. If the user wants to keep behavior that truly conflicts with the effective rule-set, the artifact must be fixed or the deviation must be formalized via ADR.
 
 Apply each Fix immediately after confirmation, then move to the next finding. Do not batch edits — partial application is easier to review than a single sweeping diff.
 
@@ -94,7 +120,7 @@ For ADR hand-offs: pass enough context that the `adr` skill can draft the ADR wi
 After the last finding is resolved, tell the user:
 
 1. The number of findings by severity (e.g., "2 high, 1 medium, 0 low").
-2. What was Fixed, what triggered a new ADR (and its number), and what was Accepted.
+2. What was Fixed, what triggered a new ADR (and its number), what was dismissed as a false positive, and what was sent back to the triggering artifact.
 3. If any Category C findings were Fixed by removal, name the artifact sections that shrank — the user should be able to look at the diff and see the simplification.
 4. If new ADRs were written, name them and remind the user they're `Proposed` until they Accept/Reject through the `adr` skill.
 
