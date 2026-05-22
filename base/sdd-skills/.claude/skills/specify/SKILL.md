@@ -33,7 +33,7 @@ If the template is missing, stop and ask the user to restore it before proceedin
 
 ### Step 3 — Locate the spec folder
 
-Numbered spec folders are owned by the `specs-scaffold` skill (e.g. `specs/001_url_shortener/`). If the target folder doesn't exist, stop and tell the user to run `specs-scaffold` first — that skill picks the next number, creates the directory, drops a stub `spec.md` with a back-link to the root index, and updates `specs/specs.md`.
+Numbered spec folders are owned by the `specs-scaffold` skill (e.g. `specs/001_url_shortener/`). **Always invoke the `specs-scaffold` skill automatically at this step** — pass the feature name as the argument. It will create `specs/` and `specs/specs.md` if they don't exist, pick the next available number, create the subfolder, drop a stub `spec.md` with a back-link to the root index, and update `specs/specs.md`. Do not ask the user to run it manually; run it yourself and continue.
 
 This skill **overwrites** that stub `spec.md` with the populated template. The template carries the back-link forward, so the final file still links back to the root index.
 
@@ -43,9 +43,17 @@ If the user gave you a feature brief at invocation, use it. Otherwise ask: *"Wha
 
 ### Step 5 — Ask the questions that surface assumptions
 
-The brief is always underspecified. Ask focused questions that draw out what isn't said. **Three to six questions per turn**; follow-ups only if needed; stop when you have enough to write.
+The brief is always underspecified. Surface what isn't said through a **structured conversation — one question at a time**. Never present multiple questions in a single turn.
 
-Cover at minimum:
+**For each question:**
+1. Identify the most important unknown that would block writing a testable spec.
+2. Reason briefly about two or three likely options (e.g. common defaults, tradeoffs). Show this reasoning so the user can confirm, correct, or redirect.
+3. End with a single, clearly stated question.
+4. Always leave the answer open — the user is not forced to pick from your options; their own answer is always valid.
+
+**After receiving each answer**, decide: do you have enough to write, or is there still a blocking unknown? If blocking, ask the next most important question. If you have enough, proceed to Step 6.
+
+Topics to cover (in rough priority order — not all need a question if the brief or constitution already answers them):
 
 - **Inputs** — what does the user provide? Format, validation, constraints?
 - **Outputs** — what does the system produce? Status codes, response shapes, side effects?
