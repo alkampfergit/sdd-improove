@@ -39,7 +39,7 @@ For each conflict you find, choose exactly one of:
 
 If you find no conflicts, say so explicitly in the plan's `## Constitution check` section (added in Step 5). "No conflicts" is a useful finding for the verifier.
 
-### Step 2 — Detect architectural changes (do this before writing)
+### Step 2 — Detect architectural changes and triage them (do this before writing)
 
 Before anything else, decide whether this feature requires changes to the **existing architecture**, or whether it fits within it. Look for these signals:
 
@@ -49,9 +49,45 @@ Before anything else, decide whether this feature requires changes to the **exis
 - **New deployment requirements** — additional processes, additional containers, scheduled jobs
 - **New cross-cutting concerns** — observability, rate limiting, audit logging, internationalization
 
-If the feature triggers any of these, **flag it explicitly** in the plan's `## Architectural changes` section. The implementer needs to know whether they're adding a feature inside the existing architecture or changing the architecture itself.
+For **each** signal you detect, triage it into one of two buckets. This step exists because the categories above mix one-way-door, project-wide decisions with within-architecture local changes, and they belong in different artifacts.
 
-If the answer is "none — this fits existing patterns", say so. That's a valid and useful finding.
+**Bucket 1 — Project-wide, load-bearing changes → ADR.**
+
+A change is project-wide if any of the following are true:
+
+- It's the **first time** the project takes on a class of behavior (first background job, first outbound mail, first websocket, first auth boundary, first cache).
+- It introduces a **new operational surface** that future features will inherit and reason about (a new deploy target, a new credential to manage, a new failure mode).
+- It would surprise a future engineer reading only the constitution (they'd ask "wait, when did we decide we do X?").
+- The constitution is **silent** on the topic and this feature establishes the precedent.
+
+These belong in an ADR — not in plan.md. The adr skill explicitly supports "filling a gap the constitution was silent on" as a valid ADR shape, and ADRs are the only artifact future readers reliably walk to find load-bearing decisions. **Hand off to the `adr` skill now**, before drafting plan.md, just like the Step 1b conflict gate. Wait for Accept/Reject; on Accept, plan.md cites the ADR(s) in its `ADRs referenced` section and the `## Architectural changes` section can simply say "see [ADR-NNNN]" rather than restating the decision.
+
+**Bucket 2 — Within-architecture, local changes → plan.md `## Architectural changes` section.**
+
+A change is local if it adds new shape inside an established pattern without introducing a class of behavior the project hasn't seen before:
+
+- A new database table inside the existing DB.
+- A new module in an already-established layer (a new repository, a new service).
+- A new endpoint on the existing HTTP surface.
+- New validation, new error mapping, new logging — none of which establish a new cross-cutting concern.
+
+These are useful to call out so the implementer sees them in context, but they're not load-bearing for the project as a whole. Document them in `## Architectural changes` in plan.md.
+
+**Examples of the line:**
+
+| Signal | Bucket | Why |
+|---|---|---|
+| First feature that needs to send email | ADR | First outbound mail — new credential, new failure mode, new operational surface |
+| Tenth feature that adds a new email template | plan.md local | Pattern is established; this is a within-pattern addition |
+| First feature that introduces background jobs | ADR | New traffic shape, new deploy concern, future features will inherit it |
+| First feature that needs a new table on the existing SQLite DB | plan.md local | Persistence is already established; new table is a local data-model change |
+| First feature that needs Postgres because SQLite can't satisfy it | ADR (and a constitution-conflict ADR per Step 1b) | Changes the Stack rule itself, not just shape |
+| Feature that adds auth to a previously anonymous app | ADR | First trust boundary — defines a pattern every future feature will follow |
+| Feature that adds a new validation rule to existing auth | plan.md local | Auth pattern already exists; this is an in-pattern refinement |
+
+**If your triage finds zero items in Bucket 1 and zero in Bucket 2**, say "none — this fits existing patterns" in plan.md's `## Architectural changes` section. That's a valid and useful finding.
+
+**If your triage finds Bucket 1 items**, do not write plan.md until those ADRs are Accepted (or Rejected and you've chosen the within-constitution alternative). Same wait-for-the-human rule as Step 1b.
 
 ### Step 3 — Ask only the non-obvious questions
 
@@ -113,7 +149,11 @@ If unresolved deviations remain, you should not have reached this step. Go back.
 
 ## Architectural changes
 
-<List any changes to the existing architecture this feature requires. "None — fits existing patterns" is a valid and useful answer. If there are changes, name each one and explain why. Note: an architectural change is distinct from a constitution conflict — the former adds new shape inside the constitution's rules; the latter changes the rules themselves and requires an ADR.>
+<List only the **Bucket 2** (within-architecture, local) changes from Step 2's triage: new tables on the existing DB, new modules in established layers, new endpoints on the existing surface, etc. These are useful for the implementer's situational awareness but are not load-bearing for the project as a whole.
+
+For **Bucket 1** (project-wide, load-bearing) changes — first time the project takes on a class of behavior, new operational surface, new trust boundary, etc. — the decision should already be captured in an ADR per Step 2, and this section should reference it: `See [ADR-NNNN](../../.specify/memory/adrs/NNNN-slug.md).` Do not restate the decision here; the ADR is the canonical record.
+
+"None — fits existing patterns" is a valid and useful answer when triage produced neither bucket.>
 
 ## Module layout
 
