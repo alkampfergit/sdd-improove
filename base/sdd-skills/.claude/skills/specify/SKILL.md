@@ -66,17 +66,17 @@ If something stays unclear after asking, leave it in the spec as `[NEEDS CLARIFI
 
 ### Step 6 — Prioritize user stories
 
-Each story is **P1, P2, P3, ...** where P1 is most critical. The key constraint: every story must be **independently testable** — if you implemented only that story, it would still deliver a usable slice. P1 alone should be a viable MVP.
+Each story is **P1, P2, P3, ...** where P1 is most critical. P1 alone should be a viable MVP.
+
+Every story MUST satisfy **INVEST**: Independent, Negotiable, Valuable, Estimable, Small, Testable. The most common failure is *Independent* — if a story can only be tested in combination with another, split it or merge it. See [references/user-stories.md](references/user-stories.md) for the full INVEST checklist and how to fix each failure mode.
 
 For each story, you'll need:
 
 - **Brief title** + priority tag
 - **Journey** in plain language
-- **Why this priority** — the value and why it ranks here
-- **Independent Test** — how to verify the story on its own
+- **Why this priority** — the value and why it ranks here (this is the *Valuable* check from INVEST)
+- **Independent Test** — how to verify the story on its own (the *Independent* + *Testable* check)
 - **Acceptance Scenarios** as Given/When/Then (one or more)
-
-If a story can only be tested in combination with another, it's not really independent — split it or merge it.
 
 ### Step 7 — Write acceptance scenarios in Given/When/Then
 
@@ -84,16 +84,25 @@ Every acceptance scenario follows this shape:
 
 > **Given** `<initial state>`, **When** `<action>`, **Then** `<expected outcome>`.
 
-Self-check before writing each scenario: can you picture the test that proves it? If not, rewrite — usually the *Given* or the *Then* is too vague. "Then the system handles it gracefully" is not a test.
+Given/When/Then is the scenario-flavored rendering of the **EARS** event-driven pattern (*When `<trigger>`, the `<system>` shall `<response>`*). Apply EARS discipline to every scenario:
+
+- **Name the subject** (`the service`, `the web UI`) — never just "it" or "the system" when multiple systems are in play.
+- **Concrete trigger** in the *When* — a specific request, action, or event you could reproduce in a test.
+- **Observable response** in the *Then* — status code, response body, persisted state, UI element — something a test can assert on.
+- **One trigger, one response per scenario.** If an "and" joins two distinct outcomes, split it into two scenarios.
+
+Self-check: can you picture the test that proves this scenario? "Then the system handles it gracefully" is not a test — rewrite. For error-shaped scenarios, use the EARS unwanted-behavior pattern (*If `<bad condition>`, then the `<system>` shall `<defined response>`*) as the underlying shape. The full set of EARS patterns and when to use each is in [references/user-stories.md](references/user-stories.md).
 
 ### Step 8 — Write functional requirements
 
-Number them **FR-001, FR-002, ...** sequentially. Each is a MUST statement, technology-agnostic.
+Number them **FR-001, FR-002, ...** sequentially. Each is a MUST statement, technology-agnostic. The MUST patterns below are the EARS notation expressed in this template's vocabulary — see [references/user-stories.md](references/user-stories.md#ears) for the full mapping (ubiquitous / event-driven / state-driven / unwanted-behavior / optional-feature).
 
 Patterns to use:
 
-- **System MUST** `<capability>` — e.g. "System MUST persist redirect counts across restarts."
-- **Users MUST be able to** `<interaction>` — e.g. "Users MUST be able to retrieve click stats by short code."
+- **System MUST** `<capability>` — EARS ubiquitous. E.g. "System MUST persist redirect counts across restarts."
+- **When `<trigger>`, System MUST** `<response>` — EARS event-driven. E.g. "When a client POSTs a valid URL, System MUST respond HTTP 201 with the short URL."
+- **Users MUST be able to** `<interaction>` — capability framed from the user's perspective. E.g. "Users MUST be able to retrieve click stats by short code."
+- **If `<bad condition>`, System MUST** `<defined response>` — EARS unwanted-behavior. E.g. "If `long_url` is missing or empty, System MUST respond HTTP 400 with `{\"error\": \"<reason>\"}`."
 - **System MUST NOT** `<forbidden behavior>` — when prohibition is the requirement.
 
 Mark unknowns inline: `[NEEDS CLARIFICATION: <what is unclear>]`. Don't fabricate values that weren't discussed.

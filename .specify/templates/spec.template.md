@@ -10,6 +10,7 @@
 ## User Scenarios & Testing
 
 > Stories are prioritized (P1 highest). Each must be **independently testable** — implementing one story alone should still deliver a usable slice.
+> Each story must satisfy **INVEST**: Independent, Negotiable, Valuable, Estimable, Small, Testable.
 
 ### User Story 1 — [Brief Title] (Priority: P1)
 
@@ -50,6 +51,8 @@
 ## Requirements
 
 ### Functional Requirements
+
+> Write each requirement in **EARS** notation: `System MUST <response>` (ubiquitous), `When <trigger>, System MUST <response>` (event-driven), or `If <bad condition>, System MUST <defined response>` (unwanted-behavior).
 
 - **FR-001**: System MUST [capability].
 - **FR-002**: Users MUST be able to [interaction].
