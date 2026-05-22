@@ -43,12 +43,14 @@ If the user can't name any forbidden patterns, don't invent. Write `TBD — add 
 
 ### Step 4 — Write the file
 
-Output to `.specify/memory/constitution.md`. Use this structure exactly:
+Output to `.specify/memory/constitution.md`. Use this structure:
 
 ```markdown
-# Project Constitution — <name>
+# Project Constitution[ — <name>]
 
 > The non-negotiables of this project. Slow-changing. Modify only via ADR.
+
+<optional 1–2 sentence framing paragraph: what this project is and the spirit of the rules below — include only if it adds context the principles don't already carry>
 
 ## Principles
 
@@ -65,7 +67,7 @@ Output to `.specify/memory/constitution.md`. Use this structure exactly:
 
 ## Forbidden
 
-- <pattern>
+- **<pattern>.** <one sentence on what it means in practice>
 - ... (3 to 8 items)
 
 ## Testing standards
@@ -75,11 +77,67 @@ Output to `.specify/memory/constitution.md`. Use this structure exactly:
 - <rule about naming or coverage>
 ```
 
-### Step 5 — Hand off
+Keep bullets short; bold the lead phrase so readers can scan. If the user didn't give the project a name, drop the `— <name>` suffix entirely rather than inventing one.
 
-After writing, tell the user the file is created and offer two next steps:
+### Step 5 — Link the constitution from the host tool's memory file (tool-agnostic)
 
-1. Create or update `AGENTS.md` at the repo root to `@import` the constitution. (`AGENTS.md` holds operational details — build commands, file layout, day-to-day conventions — that change too often to live in the constitution.)
+A constitution the coding agent never loads is wasted work. After writing the constitution, **you must** ensure the main memory file of whichever AI coding tool is in use references `.specify/memory/constitution.md`. This step is mandatory — do not skip it, even if the user did not explicitly ask.
+
+**Detect existing memory files** by checking the repo root (and a couple of well-known subpaths) for each of these. Multiple may coexist:
+
+| Tool | Memory file | Import syntax |
+|------|-------------|---------------|
+| OpenAI Codex CLI / generic cross-tool | `AGENTS.md` | `@.specify/memory/constitution.md` |
+| Claude Code | `CLAUDE.md` | `@.specify/memory/constitution.md` |
+| Gemini CLI | `GEMINI.md` | `@.specify/memory/constitution.md` |
+| Cursor | `.cursor/rules/*.mdc` or `.cursorrules` | plain reference (no native import) |
+| GitHub Copilot | `.github/copilot-instructions.md` | plain reference (no native import) |
+| Aider | `CONVENTIONS.md` | plain reference (no native import) |
+| Windsurf | `.windsurfrules` | plain reference (no native import) |
+
+**For every memory file that exists**, ensure it contains a reference to the constitution. Be idempotent — if a reference already exists (in any form), leave it alone. Otherwise:
+
+- **Tools that support `@import`** (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`): append (or insert near the top, before day-to-day notes) a section:
+
+  ```markdown
+  ## Project constitution
+
+  @.specify/memory/constitution.md
+  ```
+
+- **Tools without native import** (`.cursorrules`, `.github/copilot-instructions.md`, `CONVENTIONS.md`, `.windsurfrules`, `.cursor/rules/*.mdc`): append a section with an explicit instruction so the agent knows to read it:
+
+  ```markdown
+  ## Project constitution
+
+  Before planning or writing code, read [.specify/memory/constitution.md](.specify/memory/constitution.md). It defines the slow-changing rules of this project — principles, stack, forbidden patterns, and testing standards. Everything you produce must comply with it.
+  ```
+
+**If no memory file exists**, create `AGENTS.md` at the repo root (it is the most broadly supported cross-tool convention) with this minimal stub:
+
+```markdown
+# AGENTS.md
+
+Operational context for coding agents working in this repository.
+
+## Project constitution
+
+@.specify/memory/constitution.md
+
+The constitution is the slow-changing layer — principles, stack, forbidden patterns, testing standards. Always load and comply with it before planning or coding. For agents whose harness does not resolve `@` imports, treat the line above as: read `.specify/memory/constitution.md` first.
+
+## Day-to-day
+
+<add build / test / run commands and file-layout notes here as the project grows>
+```
+
+Report back to the user every memory file you touched (or created) and the exact line/section added.
+
+### Step 6 — Hand off
+
+After writing the constitution and wiring it into the host tool's memory file, tell the user what you did and offer two next steps:
+
+1. Review the memory file(s) you updated — they're the entry point coding agents will see.
 2. Run the `specify` skill to scope the first feature.
 
 Do not run either automatically.
