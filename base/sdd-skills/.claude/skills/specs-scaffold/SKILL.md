@@ -4,12 +4,14 @@ description: >
   Manages the specs/ folder structure for spec-driven development. Initializes
   the root index at specs/specs.md (plural — lists every spec), creates the
   next numbered subfolder (001_brief_description, 002_brief_description, ...)
-  with a stub spec.md (singular) back-linked to the root, and lists what
-  already exists. Use when the user asks to "init specs", "scaffold specs
-  folder", "add a new spec", "create the next spec folder", "new spec",
-  "list specs", or "show spec folders". Does NOT write spec/plan/tasks
-  content — that is owned by the specify, plan, and tasks skills which write
-  into the folder this skill creates.
+   with a stub spec.md (singular) back-linked to the root, and lists what
+   already exists. When adding a spec, first create or switch to
+   feature/<slug>_spec before any writes so each spec lives on its own branch.
+   Use when the user asks to "init specs", "scaffold specs folder", "add a
+   new spec", "create the next spec folder", "new spec", "list specs", or
+   "show spec folders". Does NOT write spec/plan/tasks content — that is
+   owned by the specify, plan, and tasks skills which write into the folder
+   this skill creates.
 ---
 
 # specs-scaffold
@@ -24,6 +26,17 @@ Two distinct files, one character apart:
 - **`specs/NNN_slug/spec.md`** (singular) — the **per-spec file**. One per numbered subfolder. Created here as a stub; populated by the `specify` skill.
 
 If you find yourself writing `specs.md` inside a numbered folder or `spec.md` at the root, stop — you've inverted the convention.
+
+## Branch rule — do this before any writes
+
+When running the `add` operation, the branch is part of the workflow, not an optional suggestion.
+
+- Once the brief has been normalized to a slug, create or switch to `feature/<slug>_spec` before running `init`, creating folders, or editing `specs/specs.md`.
+- Use the exact branch pattern `feature/xxx_name_spec`, where `xxx_name` is the normalized snake_case slug.
+- If the branch does not exist yet, create it.
+- If it already exists, switch to it.
+- If the current branch has unrelated uncommitted changes that make switching unsafe, stop and ask the user how to proceed. Never stash, reset, or discard changes automatically.
+- The goal is one spec branch per spec folder, so every new `specs/NNN_<slug>/spec.md` starts life on its own feature branch.
 
 ## Layout this skill maintains
 
@@ -74,11 +87,12 @@ Use when the user asks to "add a new spec", "create a spec folder", "new spec", 
    - `"User Login & Signup"` → `user_login_signup`
    - `"Bulk import (CSV)"` → `bulk_import_csv`
    - `"URL shortener"` → `url_shortener`
-3. **Run `init` first** if `specs/` or `specs/specs.md` is missing.
-4. **Find the next number.** Scan `specs/` for directories matching `^\d{3}_`. Take the highest existing number; the new number is that + 1. If none exist, start at `001`. Always format as three digits, zero-padded.
-5. **Refuse to clobber.** If `specs/NNN_<slug>/` already exists, stop and ask the user whether to pick a different slug or abort. Never overwrite an existing folder.
-6. **Create the folder** `specs/NNN_<slug>/`.
-7. **Create the stub `specs/NNN_<slug>/spec.md`** with exactly this content (the `specify` skill will overwrite this with the populated template):
+3. **Create or switch to the branch before any writes.** The branch name must be `feature/<slug>_spec`. Use that exact pattern before running `init`, creating folders, or editing any spec files. If the working tree prevents a safe switch, stop and ask the user how to proceed.
+4. **Run `init` first** if `specs/` or `specs/specs.md` is missing.
+5. **Find the next number.** Scan `specs/` for directories matching `^\d{3}_`. Take the highest existing number; the new number is that + 1. If none exist, start at `001`. Always format as three digits, zero-padded.
+6. **Refuse to clobber.** If `specs/NNN_<slug>/` already exists, stop and ask the user whether to pick a different slug or abort. Never overwrite an existing folder.
+7. **Create the folder** `specs/NNN_<slug>/`.
+8. **Create the stub `specs/NNN_<slug>/spec.md`** with exactly this content (the `specify` skill will overwrite this with the populated template):
 
    ```markdown
    # NNN — <Title Cased Brief Description>
@@ -94,7 +108,7 @@ Use when the user asks to "add a new spec", "create a spec folder", "new spec", 
 
    Replace `NNN` with the actual number and `<Title Cased Brief Description>` with the brief description in Title Case (e.g. `001 — User Login Signup`).
 
-8. **Append an entry to `specs/specs.md`** under the `## Specifications` section, in numeric order. The entry format is:
+9. **Append an entry to `specs/specs.md`** under the `## Specifications` section, in numeric order. The entry format is:
 
    ```markdown
    - [NNN — Title Cased Brief Description](NNN_<slug>/spec.md)
@@ -102,7 +116,7 @@ Use when the user asks to "add a new spec", "create a spec folder", "new spec", 
 
    If the `<!-- entries appear here ... -->` comment is still in the file, leave it (it's harmless). Append below existing entries so the list stays in numeric order.
 
-9. Report the created path and confirm the index was updated. Tell the user the next step is to run the `specify` skill to populate `spec.md` from the template.
+10. Report the created path and confirm the index was updated. Tell the user the next step is to run the `specify` skill to populate `spec.md` from the template.
 
 ### list
 
@@ -129,6 +143,7 @@ These hold at all times. If you find them violated, fix them before doing anythi
 - The root `specs/specs.md` (plural) exists whenever any `specs/NNN_*` folder exists.
 - Numeric prefixes are unique, three-digit, zero-padded. Contiguous numbering from `001` is **not required** — gaps are allowed, never renumber.
 - Every `specs/NNN_*/spec.md` (singular) contains a back-link to `../specs.md` — either via the stub above, or carried forward by the `specify` skill's template.
+- For `add`, the branch `feature/<slug>_spec` is created or checked out before any spec-related writes happen.
 - This skill never deletes folders and never edits `plan.md` or `tasks.md`. It only writes the stub `spec.md`; once `specify` runs, this skill leaves `spec.md` alone.
 
 ## What this skill is NOT for
@@ -153,11 +168,12 @@ User: *"add a new spec for the URL shortener"*
 
 Action:
 1. Slug → `url_shortener`.
-2. `specs/` is missing → run `init` first.
-3. No existing `NNN_` folders → next number is `001`.
-4. Create `specs/001_url_shortener/spec.md` (stub) with title `001 — Url Shortener` and the back-link.
-5. Append `- [001 — Url Shortener](001_url_shortener/spec.md)` to `specs/specs.md`.
-6. Tell the user the folder is ready and suggest running `specify`.
+2. Create or switch to `feature/url_shortener_spec` before any writes.
+3. `specs/` is missing → run `init` first.
+4. No existing `NNN_` folders → next number is `001`.
+5. Create `specs/001_url_shortener/spec.md` (stub) with title `001 — Url Shortener` and the back-link.
+6. Append `- [001 — Url Shortener](001_url_shortener/spec.md)` to `specs/specs.md`.
+7. Tell the user the folder is ready and suggest running `specify`.
 
 **Example 3: adding a second spec**
 
@@ -165,9 +181,10 @@ User: *"new spec: bulk import from CSV"*
 
 Action:
 1. Slug → `bulk_import_from_csv`.
-2. Existing folders: `001_url_shortener` → next number is `002`.
-3. Create `specs/002_bulk_import_from_csv/spec.md` (stub).
-4. Append to `specs/specs.md` under the existing `001` entry.
+2. Create or switch to `feature/bulk_import_from_csv_spec` before any writes.
+3. Existing folders: `001_url_shortener` → next number is `002`.
+4. Create `specs/002_bulk_import_from_csv/spec.md` (stub).
+5. Append to `specs/specs.md` under the existing `001` entry.
 
 **Example 4: listing**
 

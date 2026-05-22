@@ -156,12 +156,35 @@ If unresolved deviations remain, you should not have reached this step. Go back.
 <What this plan does NOT cover, even if related. Helps the implementer not over-build.>
 ```
 
+### Step 5b — Post-draft ADR sweep (do this before handoff)
+
+Step 1b ran *before* drafting and caught conflicts you saw coming. But design decisions crystallize *during* drafting — the user's TQ answers pick specific libraries, you pin specific versions, you choose specific deployment shapes. Each of those is a fresh chance to deviate from the constitution that the pre-draft gate had no way to see. So before handing off, re-walk the **drafted** plan against the constitution one more time.
+
+Open `plan.md` and the constitution side-by-side. For every section that names a concrete choice — `Module layout`, `Data model`, `API contract`, `Algorithms / key decisions`, `Dependencies`, `Deployment plan` — ask:
+
+- Does this choice match what the constitution's Stack section names? If the constitution says "Persistence: X (Y recommended)" and you picked Z, that is a deviation **even if Z is technically allowed** by another clause. "Recommended" choices in the Stack section are the project's defaults; overriding them is the kind of decision the constitution wants formalized.
+- Does this choice violate any Principle, Forbidden pattern, or Testing standard?
+- Does the user's answer to a TQ question pick something other than the constitution's named default? (TQ answers are the most common source of post-draft deviations — the user picked an option that satisfied one rule but quietly overrode another.)
+
+For each deviation found, the resolution rules are the same as Step 1b: revise the plan to comply, write an ADR via the `adr` skill, or stop and ask. **Do not paper over a deviation by writing a "Constitution check" paragraph that argues why the deviation is fine** — that's the same anti-pattern Step 1b warned against, just discovered later.
+
+Common shapes this step catches that Step 1b cannot:
+
+- The user picked a library option in TQ that is not the one the Stack section recommends.
+- A version pin in `Dependencies` requires a runtime newer than the constitution's stated minimum.
+- A choice in `Algorithms` introduces a pattern the Forbidden section names (e.g. a sync DB call inside what looked async at the gate).
+- The chosen deployment shape requires a process/container/job the constitution's deployment assumptions don't include.
+
+If the sweep finds nothing, say so explicitly in your handoff message ("post-draft ADR sweep: no new deviations"). That's a useful signal for the verifier.
+
+If the sweep finds one or more deviations and an ADR is the right resolution, hand off to the `adr` skill **now**, before Step 6. The plan's `Constitution check` and `ADRs referenced` sections must be updated to cite the resulting ADR(s) once Accepted — same flow as Step 1b.
+
 ### Step 6 — Hand off
 
 Tell the user the plan is written and offer:
 
 1. **Read the `Architectural changes` and `Risks` sections carefully.** Those are where decisions get baked in. Push back on anything you disagree with before approving.
-2. Recommended: run the `constitution-check` skill on `plan.md` before decomposing — it audits the plan against the constitution + accepted ADRs and catches speculative design that the plan-writing model rationalized.
+2. Recommended: run the `constitution-check` skill on `plan.md` before decomposing — it audits the plan against the constitution + accepted ADRs and catches speculative design that the plan-writing model rationalized. The Step 5b sweep is your own pass; `constitution-check` is the independent fresh-context audit. Both are worth running because the author of an artifact is structurally the worst auditor of it.
 3. Run the `tasks` skill to decompose this plan into atomic implementation tasks.
 
 ## What this skill is NOT for
