@@ -41,28 +41,44 @@ This skill **overwrites** that stub `spec.md` with the populated template. The t
 
 If the user gave you a feature brief at invocation, use it. Otherwise ask: *"What feature do you want to specify? One to three sentences is enough."*
 
-### Step 5 — Ask the questions that surface assumptions
+### Step 5 — Surface assumptions through structured conversation
 
-The brief is always underspecified. Surface what isn't said through a **structured conversation — one question at a time**. Never present multiple questions in a single turn.
+The brief is always underspecified. Drive the conversation through these five substeps. **One question per turn — never multiple.** See [references/elicitation.md](references/elicitation.md) for the full angle checklist, example questions, and anti-patterns.
 
-**For each question:**
-1. Identify the most important unknown that would block writing a testable spec.
-2. Reason briefly about two or three likely options (e.g. common defaults, tradeoffs). Show this reasoning so the user can confirm, correct, or redirect.
-3. End with a single, clearly stated question.
-4. Always leave the answer open — the user is not forced to pick from your options; their own answer is always valid.
+**5a. Restate.** Before any questions, restate the brief in one paragraph including the inferred *why*. Ask "is this right?". This catches misreads before they cement.
 
-**After receiving each answer**, decide: do you have enough to write, or is there still a blocking unknown? If blocking, ask the next most important question. If you have enough, proceed to Step 6.
+**5b. Triage.** Silently walk the angle checklist in [references/elicitation.md](references/elicitation.md) — who, why, what, inputs, outputs, when, journeys, edge cases, integration, non-functional, out-of-scope, success criteria. Mark each angle as *answered* (brief or constitution covers it), *implied* (high-confidence inference), or *unknown*. Only **unknown** angles become questions. Do not output this triage.
 
-Topics to cover (in rough priority order — not all need a question if the brief or constitution already answers them):
+**5c. Ask, one at a time.** For each unknown, in rough priority order:
+1. Briefly reason about 2–3 likely options (defaults, tradeoffs). Show the reasoning so the user can confirm, correct, or redirect.
+2. End with a single, clearly stated question.
+3. Leave the answer open — the user's own answer is always valid.
 
-- **Inputs** — what does the user provide? Format, validation, constraints?
-- **Outputs** — what does the system produce? Status codes, response shapes, side effects?
-- **User journeys** — which flows matter, and which one is the smallest viable slice (P1)?
-- **Edge cases** — empty input? Malformed input? Concurrent access? Boundary values?
-- **Out of scope** — what's NOT part of v1? (auth? rate limiting? observability? UI?)
-- **Success criteria** — what measurable outcome proves this works? (latency, completion rate, error budget)
+**5d. Mid-checkpoint.** After ~3–5 questions, mirror back the working understanding in 3–6 bullets and invite corrections or additions in one open prompt ("Anything missing or wrong before I keep going?"). One open prompt elicits more than three narrow questions, without feeling like an interrogation.
 
-If something stays unclear after asking, leave it in the spec as `[NEEDS CLARIFICATION: <what is unclear>]` rather than guessing.
+**5e. Stop condition.** Stop asking when **all three** hold:
+1. Every P1 acceptance scenario will be testable from current knowledge.
+2. You can draft ≥3 measurable success criteria with real numbers.
+3. No major scope ambiguity remains.
+
+Cap at ~8 questions unless the user invites more. Remaining unknowns become `[NEEDS CLARIFICATION: <what is unclear>]` markers in the spec — they don't all need answers up front.
+
+**Guardrail.** Never ask implementation questions (database choice, framework, file layout, protocol). Those belong to the `plan` skill. Test: if the answer changes the spec, ask; if it only changes how it's built, skip.
+
+**Logging — write `interview.md` as you go.** Maintain a transcript at `specs/<folder>/interview.md` alongside the spec.
+
+- Before the restate (5a), create the file with a header: feature name, today's date, the original brief verbatim.
+- After every Q/A pair, append immediately (don't batch — must survive interruption). Log the restate and mid-checkpoint exchanges too, not just numbered questions.
+- Format each entry as:
+  ```markdown
+  ## Q<n> — <angle, e.g. "Inputs">
+  **Reasoning shown:** <the 2–3 options you laid out>
+  **Question:** <what you asked>
+  **Answer:** <user's reply, verbatim>
+  ```
+- If `interview.md` already exists (re-running `specify` on an existing folder), do **not** clobber it. Append a new dated section: `## Revision — <YYYY-MM-DD>` and continue logging beneath.
+
+The interview file is the decision log behind the spec. Downstream skills (`plan`, `tasks`) can read it to understand *why* a requirement is shaped the way it is.
 
 ### Step 6 — Prioritize user stories
 
@@ -132,9 +148,14 @@ Preserve the template's headings, section order, and numbering format exactly. R
 
 ### Step 11 — Hand off
 
-Tell the user the spec is written and offer:
+Tell the user the spec is written. Point at both files in the folder:
 
-1. **Read it end-to-end before approving.** This is the contract for everything that follows. If you wouldn't sign it, don't approve it.
+- `spec.md` — the contract.
+- `interview.md` — the Q/A transcript that produced it.
+
+Then offer:
+
+1. **Read `spec.md` end-to-end before approving.** This is the contract for everything that follows. If you wouldn't sign it, don't approve it.
 2. Run the `plan` skill to translate this spec into a technical plan.
 
 Do not proceed automatically.
