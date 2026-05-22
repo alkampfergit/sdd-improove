@@ -156,7 +156,8 @@ Tell the user the spec is written. Point at both files in the folder:
 Then offer:
 
 1. **Read `spec.md` end-to-end before approving.** This is the contract for everything that follows. If you wouldn't sign it, don't approve it.
-2. Run the `plan` skill to translate this spec into a technical plan.
+2. Recommended: run the `constitution-check` skill on `spec.md` before moving on — it audits the spec against the project constitution and surfaces any speculative requirements before they propagate into the plan.
+3. Run the `plan` skill to translate this spec into a technical plan.
 
 Do not proceed automatically.
 

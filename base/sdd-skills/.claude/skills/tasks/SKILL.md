@@ -97,7 +97,8 @@ T-01 ─┬─ T-02 ──┐
 Tell the user the task list is committed and offer:
 
 1. **Review T-01.** Does it have zero dependencies and a clear acceptance test? If yes, ready to implement.
-2. **Implement T-01 with the test-first loop:** ask the agent to write the failing test, run it, confirm it fails, then ask the agent to make it pass without changing the test, run again, commit. Repeat for T-02, T-03, ...
+2. Recommended: run the `constitution-check` skill on `tasks.md` before starting implementation — it audits each task's acceptance test against spec FR/SCs and catches "good hygiene" additions (placeholder endpoints, premature files, defensive scaffolding) that the tasks-writing model added without a spec citation.
+3. **Implement T-01 with the test-first loop:** ask the agent to write the failing test, run it, confirm it fails, then ask the agent to make it pass without changing the test, run again, commit. Repeat for T-02, T-03, ...
 
 ## What this skill is NOT for
 
