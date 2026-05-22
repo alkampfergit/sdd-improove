@@ -123,78 +123,21 @@ Write the append immediately after the user answers, before drafting the plan, s
 
 Every design decision should reference the spec criterion it satisfies. For each major design choice in the plan, write `(satisfies A3)` or `(supports NFR2)`. This makes the plan auditable end-to-end and gives the verifier explicit handles.
 
-### Step 5 — Write the file
+### Step 5 — Read the template and write the file
 
-Output to `specs/<feature-name>/plan.md` with this structure:
+The plan structure lives in [`.specify/templates/plan.template.md`](../../../.specify/templates/plan.template.md). That file is the **structural source of truth** — this skill provides the workflow for filling it in; it does not invent its own section layout. If the template is missing, stop and ask the user to restore it before proceeding.
 
-```markdown
-# Plan: <Feature Name>
+Copy the template to `specs/<feature-name>/plan.md`, replacing every `[bracket placeholder]` with concrete content from Steps 1b through 4 (constitution-conflict resolutions, architectural-change triage results, TQ answers, and the design decisions you've gathered). Preserve the template's headings and section order exactly. Remove the bracket-comment guidance from the final file — only the populated sections should remain.
 
-> Technical design satisfying spec.md. Cite spec criterion IDs (A1, A2, NFR1, ...) next to design decisions.
+Substitutions to make as you populate:
 
-## Architecture overview
+- `[Feature Name]` → the human-readable feature name (matches the title in `spec.md`).
+- `Constitution check` → the resolution from Step 1b: either "No conflicts …" or the list of ADR IDs that resolved deviations. Never use this section to argue why a deviation is fine — that's the anti-pattern Step 1b warned against.
+- `ADRs referenced` → the ADR IDs both Step 1b and Step 2 produced. Empty list is valid.
+- `Architectural changes` → only Bucket-2 (within-architecture, local) items from Step 2's triage. Bucket-1 items live in their ADRs; this section references them, it does not restate them.
+- Module layout, Data model, API contract, Algorithms, Dependencies, Deployment plan, Risks, Out of scope → populated per the guidance inside each section's brackets, citing spec criterion IDs (FR-xxx, SC-xxx, NFR-xxx) next to every concrete design decision per Step 4.
 
-<two to four paragraphs — the shape of the solution. A small ASCII diagram is welcome if it helps.>
-
-## Constitution check
-
-<Per Step 1b. One of:
-- "No conflicts — design complies with the constitution as written."
-- "Deviations resolved via ADR(s): ADR-NNNN — <title>, ADR-MMMM — <title>." (List each ADR; do not restate its content here.)
-If unresolved deviations remain, you should not have reached this step. Go back.>
-
-## ADRs referenced
-
-<List the ADR IDs this plan depends on. Format: `- [ADR-NNNN](../../.specify/memory/adrs/NNNN-slug.md) — one-line summary.` Empty list is valid.>
-
-## Architectural changes
-
-<List only the **Bucket 2** (within-architecture, local) changes from Step 2's triage: new tables on the existing DB, new modules in established layers, new endpoints on the existing surface, etc. These are useful for the implementer's situational awareness but are not load-bearing for the project as a whole.
-
-For **Bucket 1** (project-wide, load-bearing) changes — first time the project takes on a class of behavior, new operational surface, new trust boundary, etc. — the decision should already be captured in an ADR per Step 2, and this section should reference it: `See [ADR-NNNN](../../.specify/memory/adrs/NNNN-slug.md).` Do not restate the decision here; the ADR is the canonical record.
-
-"None — fits existing patterns" is a valid and useful answer when triage produced neither bucket.>
-
-## Module layout
-
-| File | Exports | Depends on |
-|------|---------|------------|
-| `<path>` | `<symbols>` | `<external/internal>` |
-| ... | ... | ... |
-
-## Data model
-
-<DDL for new tables, schema for new messages, or "no data model changes — uses existing X". Include CREATE TABLE statements, JSON schemas, or message shapes as appropriate.>
-
-## API contract
-
-<One block per endpoint or interface. For each: method + path, request shape, response shape, status codes. Reference A-IDs from the spec.>
-
-## Algorithms / key decisions
-
-<Short notes on non-obvious choices — collision retry strategy, sort order, caching policy, etc. One paragraph each, with the reasoning.>
-
-## Dependencies
-
-| Package | Version | Purpose |
-|---------|---------|---------|
-| <name> | <semver> | <one line> |
-
-## Deployment plan
-
-<What changes about how this feature is deployed. Specific commands if relevant. Configuration values that need to be set. "No deployment changes" is valid if true.>
-
-## Risks and mitigations
-
-| ID | Risk | Mitigation |
-|----|------|------------|
-| R1 | <risk> | <how it's handled, or "accepted — see X"> |
-| ... | ... | ... |
-
-## Out of scope
-
-<What this plan does NOT cover, even if related. Helps the implementer not over-build.>
-```
+Remove unused optional sections (e.g. `Data model` if the feature has no data model changes — replace its body with `No data model changes.` rather than deleting the heading, so the template's section order stays auditable).
 
 ### Step 5b — Post-draft ADR sweep (do this before handoff)
 

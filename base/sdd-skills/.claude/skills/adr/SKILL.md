@@ -46,55 +46,21 @@ Most ADR content is derivable. Ask only when:
 
 Two questions max per turn.
 
-### Step 4 — Write the ADR as Proposed
+### Step 4 — Read the template and write the ADR as Proposed
 
-Output to `.specify/memory/adrs/NNNN-kebab-case-slug.md` using the template below. **Always write new ADRs with `Status: Proposed`** — the file goes to disk first, the user decides next. Never write `Accepted` on the first pass; that comes only after explicit user confirmation in Step 5.
+The ADR structure lives in [`.specify/templates/adr.template.md`](../../../.specify/templates/adr.template.md). That file is the **structural source of truth** — this skill provides the workflow for filling it in; it does not invent its own section layout. If the template is missing, stop and ask the user to restore it before proceeding.
 
-```markdown
-# ADR-NNNN: <Title>
+Copy the template to `.specify/memory/adrs/NNNN-kebab-case-slug.md`, replacing every `[bracket placeholder]` with concrete content. Preserve the template's headings, section order, and `Status: Proposed` exactly. Remove the bracket-comment guidance from the final file. Keep the prose plain — future readers want to know *why*, not be sold on the choice.
 
-- **Status:** Proposed | Accepted | Rejected | Superseded by ADR-XXXX
-- **Date:** YYYY-MM-DD
-- **Triggered by:** <link to plan.md / tasks.md / issue / conversation>
+Substitutions to make as you populate:
 
-## Context
+- `[NNNN]` → the zero-padded number picked in Step 1.
+- `[Title]` → a one-line title that names the decision (e.g., "Use node:sqlite over better-sqlite3 for async-everywhere compliance").
+- `[YYYY-MM-DD]` → today's date in ISO format.
+- `[Triggered by]` → the link or short description from Step 2's input gathering.
+- Context, Decision, Consequences, Alternatives, Follow-ups → populated per the guidance inside each section's brackets.
 
-<Two to four paragraphs. What forced this decision? What constraints are in play? Quote the exact constitution clauses this ADR touches, if any:
-
-> <verbatim constitution text>
-
-State the contradiction or gap plainly — don't argue it.>
-
-## Decision
-
-<One sentence stating the decision in present tense. "We use X." Then one to three paragraphs of detail on what "X" means in practice — versions, configuration, scope.>
-
-## Consequences
-
-**Positive:**
-- <consequence>
-- <consequence>
-
-**Negative / accepted costs:**
-- <consequence>
-- <consequence>
-
-**Constitution impact:**
-- <"This ADR amends the constitution clause: ..." or "No constitution impact — fills a gap.">
-
-## Alternatives considered
-
-### <Alternative 1>
-<One paragraph. Why rejected.>
-
-### <Alternative 2>
-<One paragraph. Why rejected.>
-
-## Follow-ups
-
-- <If this ADR requires the constitution to be edited, list that as a follow-up task here. The ADR is immutable; the constitution edit is a separate, traceable change that *cites* this ADR.>
-- <Any deferred questions or revisit triggers.>
-```
+**Always write new ADRs with `Status: Proposed`** — the file goes to disk first, the user decides next. Never write `Accepted` on the first pass; that comes only after explicit user confirmation in Step 5.
 
 Rules for the file:
 
@@ -102,7 +68,6 @@ Rules for the file:
 - **Immutable once Accepted.** After acceptance, the file is not edited except to flip Status to `Superseded by ADR-XXXX`. New decisions go in new ADRs.
 - **Rejected ADRs stay on disk.** They are part of the audit trail — they answer "did we consider X?" for future readers. Never delete a Rejected ADR.
 - **Date in ISO format.** Use the project's current date.
-- **Plain prose, not marketing.** Future readers want to know *why*, not be sold on the choice.
 
 ### Step 5 — Ask the user to Accept or Reject
 
