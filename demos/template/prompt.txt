@@ -1,0 +1,3 @@
+check @login.cs  and generate a security report (do not use existing skills)
+
+check @login.cs    and generate a security report (do not use existing skills), use template at @security-report.template.md   to generate a single report for each vulnerability you find
