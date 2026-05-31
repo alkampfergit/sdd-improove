@@ -1,6 +1,10 @@
 # The Complete Guide to Structuring Claude Code Skills
 
-> A comprehensive, practical guide to building, organizing, and optimizing Agent Skills for Claude Code. Merges official Anthropic design principles with advanced techniques and real-world patterns.
+> A comprehensive, practical guide to building, organizing, and optimizing Agent Skills for **Claude Code**. Merges official Anthropic design principles with advanced techniques and real-world patterns.
+>
+> **Scope:** This guide targets Claude Code skills specifically. Where behavior differs on other surfaces (Claude API, claude.ai), it is noted inline.
+>
+> **Verified against official docs (May 2026):** [Agent Skills overview](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview), [Skill authoring best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices), and the [Claude Code skills reference](https://code.claude.com/docs/en/skills). When in doubt, those pages are authoritative.
 
 ---
 
@@ -14,7 +18,7 @@
 6. [Mastering the Description Field](#6-mastering-the-description-field)
 7. [YAML Frontmatter Reference](#7-yaml-frontmatter-reference)
 8. [Instruction Body Best Practices](#8-instruction-body-best-practices)
-9. [Advanced Features (Claude Code 2.1+)](#9-advanced-features-claude-code-21)
+9. [Advanced Features (Claude Code)](#9-advanced-features-claude-code)
 10. [Progressive Disclosure & Information Architecture](#10-progressive-disclosure--information-architecture)
 11. [Skill-Scoped Hooks & Governance](#11-skill-scoped-hooks--governance)
 12. [Context Forking & Sub-Agents](#12-context-forking--sub-agents)
@@ -68,7 +72,7 @@ Skills use a three-level system to minimize token usage while maintaining expert
 - **Level 2 (if relevant):** Full SKILL.md with workflows
 - **Level 3 (if needed):** reference/formulas.md, reference/ratios.md, reference/examples.md
 
-This hierarchy means 10 available skills cost only ~300 tokens in metadata, not 2000+ tokens each.
+This hierarchy keeps the cost of having many skills installed low. Per the official docs, Level 1 metadata is roughly **~100 tokens per skill**, so dozens of installed skills add only a small, fixed overhead — the full instructions and reference files cost nothing until a skill is actually triggered. (Exact figures are illustrative; treat them as orders of magnitude, not guarantees.)
 
 ### Principle 2: Composability
 
@@ -99,6 +103,24 @@ Skills work identically across Claude.ai, Claude Code, and the API without modif
 - Bundle everything inside the skill folder
 - Don't assume specific tools are available unless bundled
 - Keep environment-specific config in separate optional files
+
+### Principle 4: Set Appropriate Degrees of Freedom
+
+This is a core official authoring principle: **match the specificity of your instructions to how fragile and variable the task is.** Think of Claude as a robot navigating a path.
+
+- **Open field (high freedom):** Many routes succeed. Give general direction in plain text and trust Claude to find the route. Use when multiple approaches are valid, decisions depend on context, or heuristics guide the work (e.g. a code review).
+- **Marked trail (medium freedom):** A preferred pattern exists but variation is fine. Provide pseudocode or a parameterized script (e.g. a report generator with a `format` option).
+- **Narrow bridge with cliffs (low freedom):** Only one safe way forward. Provide an exact script and tell Claude not to deviate. Use when operations are fragile, consistency is critical, or a specific sequence must hold (e.g. a database migration that must run in order).
+
+```markdown
+## Database migration
+
+Run exactly this script. Do not modify the command or add flags:
+
+`python scripts/migrate.py --verify --backup`
+```
+
+Over-constraining an open-field task wastes tokens and blocks good judgment; under-constraining a narrow-bridge task invites errors. Calibrating this is most of the art of skill authoring.
 
 ---
 
@@ -170,13 +192,17 @@ The separation is **deliberate and important**:
 | **No special characters** | `pdf-processor` ✓ / `pdf@processor` ✗ |
 | **Lowercase** | `brand-guidelines` ✓ / `Brand-Guidelines` ✗ |
 
+> **Naming style (official recommendation):** prefer the **gerund form** (verb + -ing) — `processing-pdfs`, `analyzing-spreadsheets`, `managing-databases` — since it names the *activity*. Acceptable alternatives are noun phrases (`pdf-processing`) or action verbs (`process-pdfs`). Avoid vague names like `helper`, `utils`, `tools`, `data`, `files`. Numbers are allowed in names (`pptx`, `docx` are valid).
+
 ### Critical File Naming Requirements
 
 | Requirement | Details |
 |---|---|
 | **SKILL.md (exact spelling)** | Must be exactly `SKILL.md` (case-sensitive). Not `SKILL.MD`, `skill.md`, `Skills.md`, or variants. |
 | **Location** | Must be at the **root** of the skill folder. Claude won't find it if nested deeper. |
-| **No README.md inside** | Do not include a README inside the skill folder. All docs go in SKILL.md or `references/`. (Use a repo-level README if hosting on GitHub.) |
+| **README inside the folder** | Not a hard rule, but a useful convention: keep all instructions in `SKILL.md` or `references/` rather than a `README.md` inside the skill, so there's one source of truth. A repo-level README (for GitHub) is fine and recommended. |
+
+> **In Claude Code, the command name comes from the folder, not the `name` field.** A skill at `.claude/skills/deploy-staging/SKILL.md` is invoked as `/deploy-staging` regardless of what `name:` says. The `name` field is an optional *display label*; it does not need to match the folder, and it can be omitted entirely. (This differs from the Claude API, where `name` is required.)
 
 ### Reserved Names to Avoid
 
@@ -205,10 +231,10 @@ Because frontmatter appears in Claude's system prompt:
 
 | Component | Limit | Guidelines |
 |---|---|---|
-| **SKILL.md** | 5,000 words max | Keep concise; move detail to `references/` |
-| **Skill name** | 64 characters max | Usually 15-40 chars is ideal |
-| **Description** | 1,024 characters max | Typically 150-300 chars is right |
-| **Simultaneous skills** | 20-50 recommended | Performance degrades with 50+ skills |
+| **SKILL.md body** | ~500 lines (soft) | Official guidance is to keep the body **under ~500 lines** for best performance (Level 2 loads as roughly <5k tokens). There is no enforced *word* limit — split into `references/` as you approach this. |
+| **Skill name** | 64 characters max | Usually 15-40 chars is ideal. Lowercase letters, numbers, hyphens only. |
+| **Description** | 1,024 characters max (hard) | In the Claude Code skill *listing*, `description` + `when_to_use` are truncated together at **1,536 chars**, and may be shortened further if many skills compete for the listing budget. Put the key use case first. Typically 150-300 chars is plenty. |
+| **Number of installed skills** | No hard limit | Skill descriptions share a *listing budget* (about 1% of the context window). When it overflows, the least-used skills' descriptions are truncated or dropped first. Raise it with `skillListingBudgetFraction` (or `SLASH_COMMAND_TOOL_CHAR_BUDGET`); run `/doctor` to check overflow. |
 
 ### Path Conventions
 
@@ -234,6 +260,25 @@ Personal skills (in `~/.claude/skills/`) live on your machine only, so you can s
 - **Include machine-specific scripts** → They won't be shared
 
 Project skills (in `.claude/skills/`) must be portable and should avoid hardcoded paths.
+
+### Runtime Environment (Claude Code)
+
+In Claude Code, skills run with the same access as any program on your machine:
+
+- **Full network access** — skills can reach the internet and call external services.
+- **Local package installation is fine, global is discouraged** — install into the project (e.g. a venv, local `node_modules`) rather than polluting the user's system.
+- This differs from the Claude API surface, where skills have **no network access and cannot install packages at runtime** (pre-installed packages only). If you ever port a skill to the API, don't rely on network or `pip install`.
+
+Always **list required packages** in SKILL.md and don't assume they're present.
+
+### Security: Treat Skills Like Installing Software
+
+A skill can direct Claude to run code and invoke tools, so a malicious or compromised skill is a real risk (data exfiltration, unauthorized access).
+
+- **Only use skills from trusted sources** — ones you wrote or got from Anthropic.
+- **Audit untrusted skills before use:** read `SKILL.md`, every script, and any bundled resource. Watch for unexpected network calls, odd file access, or operations that don't match the stated purpose.
+- **External fetches are especially risky** — fetched content can carry injected instructions, and even a trustworthy skill can be compromised if its dependencies change.
+- For project skills, `allowed-tools` only takes effect after you accept the workspace trust dialog — review project skills before trusting a repo, since a skill can grant itself broad tool access.
 
 ---
 
@@ -384,6 +429,26 @@ Choose one term and use it throughout:
 Always use "extract text"
 ```
 
+#### Avoid Time-Sensitive Information
+
+Don't bake in facts that will expire. A skill body persists and gets reused for months.
+
+```markdown
+✗ Bad (will become wrong):
+"If you're doing this before August 2025, use the old API; after, use the new one."
+
+✓ Good (current method + collapsed history):
+## Current method
+Use the v2 endpoint: `api.example.com/v2/messages`
+
+## Old patterns
+<details><summary>Legacy v1 API (deprecated 2025-08)</summary>
+Used `api.example.com/v1/messages`. No longer supported.
+</details>
+```
+
+Keep the live instruction front-and-center; tuck deprecated context into an "old patterns" section so it doesn't mislead.
+
 ---
 
 ## 6. Mastering the Description Field
@@ -405,6 +470,13 @@ description: >
   "design specs", "component documentation", or "design-to-code handoff". 
   [HOW]: Extracts layers, exports assets, generates accessibility notes.
 ```
+
+> **Companion field — `when_to_use` (Claude Code):** instead of cramming every trigger phrase into `description`, you can put the "when" half in a separate optional `when_to_use` field. Claude Code appends it to `description` in the skill listing. The combined text is capped at **1,536 characters** and counts against the shared listing budget, so lead with the single most important use case.
+>
+> ```yaml
+> description: Analyzes Figma design files and generates developer handoff docs.
+> when_to_use: Use when the user uploads .fig files or asks for "design specs", "component documentation", or "design-to-code handoff".
+> ```
 
 ### Essential Elements
 
@@ -511,143 +583,122 @@ Build your triggers around these patterns:
 
 ## 7. YAML Frontmatter Reference
 
-### Complete Frontmatter Template
+In Claude Code, **all frontmatter fields are optional** — only `description` is recommended so Claude knows when to use the skill. The fields below are the ones Claude Code actually interprets.
+
+### Complete Frontmatter Template (Claude Code fields)
 
 ```yaml
 ---
-# Required fields
-name: your-skill-name              # Max 64 chars, kebab-case
-description: >                     # Max 1024 chars, what + when + how
-  Your skill description here.
+# Discovery (recommended)
+name: your-skill-name              # Optional display label; max 64 chars, lowercase/numbers/hyphens.
+                                   # Does NOT set the command — the folder name does.
+description: Brief what + when.    # Max 1024 chars. Loaded into context; lead with the key use case.
+when_to_use: >                    # Optional. Appended to description in the listing.
+  Trigger phrases / example requests. description + when_to_use capped at 1536 chars combined.
 
-# Optional metadata
-license: MIT                       # Open source license
-compatibility: "Requires network"  # Environment requirements (1-500 chars)
-metadata:                          # Custom key-value pairs
-  author: Your Name
-  version: 1.0.0
-  mcp-server: server-name
-  category: productivity
-  tags: [automation, workflow]
-  documentation: https://example.com/docs
-  support: support@example.com
+# Invocation control
+disable-model-invocation: false    # true = only the user can run it (/name); removes it from Claude's context.
+user-invocable: true               # false = hidden from the / menu; Claude can still invoke it.
+paths: "src/**/*.ts, *.sql"        # Optional globs: auto-activate only when working with matching files.
 
-# Advanced execution control
-context: fork                      # Run in isolated sub-agent
-agent: Explore                     # Sub-agent type (Explore, Plan, general-purpose)
-disable-model-invocation: true    # Manual invocation only (/skill-name)
-user-invocable: false             # Hide from slash command menu
-allowed-tools: Read, Glob, Grep   # Restrict available tools
-model: claude-opus                # Override default model
+# Arguments (for /name invocation)
+argument-hint: "[issue-number]"    # Shown during autocomplete.
+arguments: [issue, branch]         # Named positional args -> $issue, $branch (also $0/$1 or $ARGUMENTS).
 
-# Governance & automation (Claude Code 2.1+)
-hooks:                            # Skill-scoped hooks
+# Tool & model control
+allowed-tools: Read Grep           # Pre-approve these tools (no permission prompt) while active. Does NOT restrict others.
+disallowed-tools: AskUserQuestion  # Remove these tools from the pool while active (clears on your next message).
+model: inherit                     # Same values as /model, or `inherit`. Applies for the rest of the turn only.
+effort: high                       # low | medium | high | xhigh | max (availability depends on model).
+shell: bash                        # bash (default) or powershell, for !`command` injection.
+
+# Subagent execution
+context: fork                      # Run the skill body as a task in an isolated subagent.
+agent: Explore                     # Subagent type for context:fork — Explore, Plan, general-purpose, or a custom agent.
+
+# Lifecycle hooks
+hooks:                             # Hooks scoped to this skill (see Section 11).
   PreToolUse:
     - matcher: "Bash"
       hooks:
         - type: command
-          command: "${CLAUDE_PLUGIN_ROOT}/scripts/validate.sh"
-  PostToolUse:
-    - matcher: "Write"
-      hooks:
-        - type: command
-          command: "echo 'File written' >> log.txt"
+          command: "${CLAUDE_SKILL_DIR}/scripts/validate.sh"
 ---
 ```
 
+> **Documentation-only fields.** `license`, `compatibility`, and arbitrary `metadata:` (author, version, tags, …) are **not interpreted by Claude Code**. They're harmless inert YAML you can keep for human/repo bookkeeping or for portability to the agentskills.io standard, but don't expect Claude Code to act on them. `compatibility` does appear in Anthropic's own `skill-creator` convention as a place to note required tools/dependencies. Keep these out of the way of the functional fields above.
+
 ### Field Definitions
 
-#### Required Fields
+#### Discovery
 
-**`name`**
-- Max 64 characters
-- kebab-case only (lowercase, hyphens, no spaces)
-- Must match folder name
-- Cannot contain "claude" or "anthropic"
-- Example: `financial-analysis`, `pdf-processing`, `code-review`
+**`name`** *(optional in Claude Code)*
+- Max 64 characters; lowercase letters, numbers, and hyphens only; no XML tags; cannot contain "claude" or "anthropic"
+- A **display label only** — the invoked command comes from the directory name (or, for a plugin-root `SKILL.md`, falls back to `name`)
+- If omitted, defaults to the directory name
+- Example: `processing-pdfs`, `pdf-processing`, `code-review`
 
-**`description`**
-- Max 1,024 characters
-- **Must state WHAT the skill does AND WHEN to use it**
-- Include diverse trigger phrases
-- No XML tags (`< >`)
-- Written in third person
-- Examples:
-  ```yaml
-  description: >
-    Processes Excel files and generates reports. Use when user asks 
-    to analyze data, review a CSV, examine trends, or create a summary.
+**`description`** *(recommended)*
+- Max 1,024 characters; non-empty; no XML tags; written in **third person**
+- States WHAT the skill does AND WHEN to use it
+- If omitted, Claude Code falls back to the first paragraph of the markdown body
+- ```yaml
+  description: Processes Excel files and generates reports. Use when the user asks to analyze data, review a CSV, examine trends, or create a summary.
   ```
 
-#### Optional Metadata Fields
+**`when_to_use`** *(optional)*
+- Extra trigger phrases / example requests, appended to `description` in the skill listing
+- Counts toward the combined **1,536-char** listing cap
 
-**`license`**
-- Specifies open source license
-- Examples: `MIT`, `Apache-2.0`, `GPL-3.0`
+**`paths`** *(optional)*
+- Comma-separated string or YAML list of glob patterns
+- When set, Claude auto-loads the skill **only** when working with files that match (same format as path-specific memory rules). Great for scoping a skill to one language/area of a repo.
 
-**`compatibility`**
-- Environment requirements (1-500 chars)
-- Examples: `"Requires Claude Code with network access"`, `"Works offline"`
-
-**`metadata`**
-- Custom key-value pairs for organization
-- Useful fields:
-  - `author`: Creator name
-  - `version`: Semantic version (1.0.0)
-  - `mcp-server`: Required MCP server
-  - `category`: Skill category
-  - `tags`: Array of tags for discovery
-  - `documentation`: Link to full docs
-  - `support`: Support contact
-
-#### Execution Control Fields
-
-**`context: fork`** (Claude Code 2.1+)
-- Run skill in isolated sub-agent
-- Sub-agent has own context window and tool access
-- Only final result returns to main conversation
-- Requires explicit, actionable instructions (see [Context Forking](#12-context-forking--sub-agents))
-
-**`agent`** (with `context: fork`)
-- Specify sub-agent type:
-  - `Explore`: Optimized for read-only codebase exploration (uses Haiku for efficiency)
-  - `Plan`: For planning and analysis
-  - `general-purpose`: Full capabilities (default)
-  - Custom agent name: Reference custom agents in `.claude/agents/`
+#### Invocation control
 
 **`disable-model-invocation`**
-- Set to `true` to prevent automatic activation
-- Skill only appears via `/skill-name` slash command
-- Useful for skills that should be explicitly invoked
+- `true` → only the user can run it via `/name`; the description is **removed from Claude's context** entirely (also blocks preloading into subagents)
+- Use for side-effecting workflows (`/deploy`, `/commit`, `/send-slack-message`) you don't want Claude triggering on its own. Default `false`.
 
 **`user-invocable`**
-- Set to `false` to hide from slash command menu
-- Skill still activates automatically if relevant
-- Useful for internal infrastructure skills
+- `false` → hidden from the `/` menu, but Claude can still invoke it automatically
+- Use for background knowledge that isn't a meaningful user command (e.g. `legacy-system-context`). Default `true`.
+- Note: this controls *menu visibility only*, not Skill-tool access. To block programmatic invocation, use `disable-model-invocation: true`.
+
+#### Arguments
+
+**`argument-hint`** — autocomplete hint, e.g. `[filename] [format]`.
+
+**`arguments`** — named positional args (space-separated string or YAML list). With `arguments: [issue, branch]`, `$issue` maps to the first argument and `$branch` to the second. You can also use `$ARGUMENTS` (all), `$ARGUMENTS[N]`, or the `$N` shorthand inside the body.
+
+#### Tool & model control
 
 **`allowed-tools`**
-- Restrict which tools Claude can use within this skill
-- Examples:
-  - `Read, Write` (file operations only)
-  - `Read, Glob, Grep` (read-only exploration)
-  - `Bash(npm:*)` (bash with npm commands only)
-  - `Bash` (full bash access)
+- Tools Claude may use **without a permission prompt** while the skill is active. Accepts a space- or comma-separated string, or a YAML list.
+- **Important nuance:** this *grants* permission; it does **not** restrict the available tool set. Every other tool is still callable, governed by your normal permission settings. To actually remove tools, use `disallowed-tools` or deny rules.
+- Supports scoping like `Bash(git add *)`, `Bash(git commit *)`.
 
-**`model`**
-- Override default Claude model for this skill
-- Examples: `claude-opus`, `claude-sonnet`, `claude-haiku`
-- Useful if skill needs enhanced reasoning
+**`disallowed-tools`** — tools removed from the pool while the skill is active (e.g. `AskUserQuestion` for an autonomous background loop). Clears on your next message.
 
-#### Governance & Hooks (Claude Code 2.1+)
+**`model`** — model to use while active. Accepts the same values as `/model`, or `inherit` to keep the current one. The override lasts for the rest of the turn only and isn't saved.
 
-**`hooks`**
-- Define skill-scoped hooks for execution control
-- Available events:
-  - `PreToolUse`: Before a tool executes
-  - `PostToolUse`: After a tool completes
-  - `Stop`: When skill stops generating
-  - `SessionStart`: When session begins
-- See [Skill-Scoped Hooks](#11-skill-scoped-hooks--governance) for detailed examples
+**`effort`** — reasoning effort while active: `low`, `medium`, `high`, `xhigh`, `max` (available levels depend on the model). Overrides the session level.
+
+**`shell`** — `bash` (default) or `powershell`, controlling how `` !`command` `` injection runs.
+
+#### Subagent execution
+
+**`context: fork`**
+- Runs the skill body as a task in an isolated subagent with its own context; only the final result returns. See [Context Forking](#12-context-forking--sub-agents).
+- Only makes sense for skills with an actionable task, not pure reference guidelines.
+
+**`agent`** *(with `context: fork`)*
+- Which subagent configuration to use: built-in `Explore`, `Plan`, `general-purpose`, or any custom agent from `.claude/agents/`. Defaults to `general-purpose`.
+- `Explore` and `Plan` skip CLAUDE.md and git status to keep their context small.
+
+#### Lifecycle hooks
+
+**`hooks`** — hooks scoped to this skill's lifecycle (`PreToolUse`, `PostToolUse`, `Stop`, `SessionStart`). See [Skill-Scoped Hooks](#11-skill-scoped-hooks--governance). Reference bundled scripts with `${CLAUDE_SKILL_DIR}`.
 
 ---
 
@@ -774,6 +825,19 @@ Cause: Query parameters too restrictive
 Solution: Broaden filters or check data exists
 ```
 
+### Writing Reliable Scripts (Solve, Don't Punt)
+
+When a skill bundles executable scripts, make them robust rather than leaving Claude to clean up:
+
+- **Solve, don't punt.** Handle error conditions in the script (missing file, permission denied) instead of letting it throw and hoping Claude recovers.
+- **No "voodoo constants."** Justify and document every magic number. `REQUEST_TIMEOUT = 30  # accounts for slow connections` — not `TIMEOUT = 47  # ?`. If you don't know the right value, neither will Claude.
+- **State execution intent.** Be explicit whether Claude should *run* a file ("Run `analyze_form.py` to extract fields") or *read it as reference* ("See `analyze_form.py` for the algorithm"). Execution is usually preferred: it's more reliable and the script's code never enters context.
+- **Prefer scripts for deterministic work.** A bundled validator is more reliable, more consistent, and cheaper than asking Claude to regenerate equivalent code each time.
+
+### Verifiable Intermediate Outputs (plan → validate → execute)
+
+For complex, high-stakes, or batch operations, have Claude emit a structured **plan file** and validate it with a script *before* applying changes. Example: updating 50 PDF form fields from a spreadsheet becomes `analyze → write changes.json → validate changes.json → execute → verify`. Benefits: errors are caught before anything is touched, verification is machine-objective, and Claude can iterate on the plan without mangling originals. Make validators verbose ("Field 'signature_date' not found. Available fields: …") so Claude can self-correct.
+
 ### Content Quality Checklist
 
 For each instruction:
@@ -787,7 +851,7 @@ For each instruction:
 
 ### Managing Complexity
 
-**If your SKILL.md exceeds 1,000 lines:**
+**If your SKILL.md approaches ~500 lines:**
 
 Use progressive disclosure:
 
@@ -816,25 +880,21 @@ See [reference/troubleshooting.md](reference/troubleshooting.md) for common erro
 
 ---
 
-## 9. Advanced Features (Claude Code 2.1+)
+## 9. Advanced Features (Claude Code)
 
-Claude Code 2.1 (January 2026) introduced three powerful features that transform skills from instructions into governed behavioral units.
+Recent Claude Code versions add several features that turn skills from static instructions into governed, dynamic behavioral units. (Exact version numbers move quickly; check the [Claude Code skills reference](https://code.claude.com/docs/en/skills) for the current state rather than relying on a fixed release number.)
 
-### Feature 1: Skill Hot-Reload
+### Feature 1: Live Change Detection (Hot-Reload)
 
-**What it is:** Modify a skill file, save it, and changes take effect immediately—no restart, no session loss.
+**What it is:** Claude Code watches skill directories. Adding, editing, or removing a `SKILL.md` under `~/.claude/skills/`, the project `.claude/skills/`, or a `.claude/skills/` inside an `--add-dir` directory takes effect **within the current session, no restart**.
+
+**Caveats:**
+- Creating a *top-level* skills directory that didn't exist when the session started **does** require a restart (so the watcher can pick it up).
+- Live detection covers `SKILL.md` text only. For a skill folder that's also a plugin, changes to `hooks/`, `.mcp.json`, `agents/`, etc. need `/reload-plugins`.
 
 **Why it matters:**
-- **Instant iteration** → Edit SKILL.md, save, test in same session
-- **Live debugging** → Observe how Claude interprets instructions in real time
-- **No context loss** → Keep conversation history while iterating
-
-**How to use:**
-```bash
-# Edit ~/.claude/skills/my-skill/SKILL.md or .claude/skills/my-skill/SKILL.md
-# Save the file
-# Changes are live immediately—no restart needed
-```
+- **Instant iteration** → edit SKILL.md, save, test in the same session
+- **No context loss** → keep conversation history while iterating
 
 ### Feature 2: Skill-Scoped Hooks (Built-In Governance)
 
@@ -858,7 +918,7 @@ hooks:
     - matcher: "Bash"
       hooks:
         - type: command
-          command: "${CLAUDE_PLUGIN_ROOT}/scripts/validate-shell.sh"
+          command: "${CLAUDE_SKILL_DIR}/scripts/validate-shell.sh"
 ---
 
 Execute the requested shell operations.
@@ -938,6 +998,42 @@ When invoked:
 - Use when you need deep exploration (saves main context)
 - Don't use when you need tight coupling with main conversation
 
+### Feature 4: Dynamic Context Injection (`!` commands)
+
+**What it is:** the `` !`<command>` `` syntax runs a shell command **before** the skill content reaches Claude, and replaces the placeholder with the command's output. Claude receives real data, not the command. This is preprocessing — Claude never sees or runs the command itself.
+
+```yaml
+---
+name: summarize-changes
+description: Summarize uncommitted changes and flag risks. Use when the user asks what changed or wants a commit message.
+---
+
+## Current changes
+!`git diff HEAD`
+
+## Instructions
+Summarize the changes above in 2-3 bullets, then list any risks (missing error handling, hardcoded values, tests needing updates). If the diff is empty, say so.
+```
+
+Rules and gotchas:
+- The inline form is only recognized when `!` starts a line or follows whitespace. `KEY=!`cmd`` is left as literal text.
+- For multi-line commands, use a fenced block opened with ` ```! `.
+- Substitution runs **once**; command output is not re-scanned for further placeholders.
+- The `shell` frontmatter field (`bash`/`powershell`) controls the interpreter.
+- Admins can disable this with `"disableSkillShellExecution": true` in settings.
+
+This is one of the most powerful Claude Code skill features and is what makes a skill's instructions *grounded in current state* rather than guesses. It is absent from many third-party guides — use it.
+
+### Feature 5: Skill Content Lifecycle (read this before writing the body)
+
+A subtle but important behavior: when a skill is invoked, its rendered `SKILL.md` content enters the conversation **as a single message and stays there for the rest of the session.** Claude Code does **not** re-read the file on later turns.
+
+Consequences for how you write:
+- **Write standing instructions, not one-time steps.** Guidance you want to apply throughout a task should read as a persistent rule, not "first, do X." A line like "Always validate before saving" survives; "Step 1: open the file" reads oddly ten turns later.
+- **Every line is a recurring token cost.** Because the body persists, conciseness matters even more than a one-shot prompt. State *what* to do, not *why*.
+- **Auto-compaction budget:** when context fills and the conversation is summarized, Claude Code re-attaches the most recent invocation of each skill, keeping roughly the first 5,000 tokens of each, within a combined ~25,000-token budget (most-recent-first). Large or numerous skills can be dropped after compaction — re-invoke the important one if its influence fades.
+- **If a skill "stops working" after the first response,** the content is usually still present; the model is just choosing other approaches. Strengthen the `description`/instructions or enforce behavior with hooks rather than assuming the skill unloaded.
+
 ---
 
 ## 10. Progressive Disclosure & Information Architecture
@@ -947,25 +1043,22 @@ Progressive disclosure is how skills stay lightweight while remaining powerful.
 ### The Three Levels, Revisited
 
 ```
-Level 1 (Always Loads): 300 tokens
-├─ name: your-skill
-├─ description: Analyze financial statements...
-├─ metadata: version, author, category
+Level 1 (Always Loads): ~100 tokens per skill
+├─ name (display label)
+└─ description (+ when_to_use), counted against the listing budget
 
-Level 2 (On Demand): +400 tokens
+Level 2 (On Demand, when triggered): under ~5k tokens
 ├─ SKILL.md body (main instructions)
 ├─ Examples
 └─ Troubleshooting
 
-Level 3 (On Demand): +200-500 tokens per file
+Level 3 (On Demand, as referenced): effectively unlimited
 ├─ reference/advanced.md
 ├─ reference/api.md
-└─ reference/examples.md
+└─ reference/examples.md   (zero cost until actually read; scripts run without loading their code)
 ```
 
-With this structure, 10 skills with separate reference docs cost:
-- Without progressive disclosure: 10 × 2000+ tokens = 20,000+ tokens
-- With progressive disclosure: (10 × 300) + (1-2 × 600) = 4,200 tokens
+The official figures: **~100 tokens per skill** at Level 1, the SKILL.md body kept **under ~5k tokens / ~500 lines**, and **no practical cap** on bundled Level-3 content because it costs nothing until read. So the payoff of progressive disclosure is large: you can install many skills and bundle comprehensive references, and only the metadata is ever paid for up front. (Don't over-index on exact token counts — they vary by model and tokenizer.)
 
 ### How to Design Progressive Disclosure
 
@@ -1153,12 +1246,12 @@ hooks:
     - matcher: "Bash"
       hooks:
         - type: command
-          command: "${CLAUDE_PLUGIN_ROOT}/scripts/validate-sql.sh"
+          command: "${CLAUDE_SKILL_DIR}/scripts/validate-sql.sh"
   PostToolUse:
     - matcher: "Bash"
       hooks:
         - type: command
-          command: "${CLAUDE_PLUGIN_ROOT}/scripts/audit-log.sh"
+          command: "${CLAUDE_SKILL_DIR}/scripts/audit-log.sh"
 ---
 
 Execute database operations safely.
@@ -1182,7 +1275,7 @@ fi
 exit 0  # Allow execution
 ```
 
-### Advanced Hook Features (2.1+)
+### Advanced Hook Features
 
 **`once: true` Configuration**
 
@@ -1258,9 +1351,12 @@ echo "maybe"
 exit 2
 ```
 
-### Using `${CLAUDE_PLUGIN_ROOT}`
+### Referencing bundled scripts: `${CLAUDE_SKILL_DIR}` vs `${CLAUDE_PLUGIN_ROOT}`
 
-This variable contains the absolute path to your skill directory:
+Use a variable so script paths resolve regardless of where the skill is installed (personal, project, or plugin):
+
+- **`${CLAUDE_SKILL_DIR}`** — the directory containing this skill's `SKILL.md`. This is the documented variable for **skills**, and the one to use in both hook commands and `` !`command` `` injection that reference bundled scripts. For a plugin skill, it points to the skill's own subdirectory, not the plugin root.
+- **`${CLAUDE_PLUGIN_ROOT}`** — the root of a **plugin**. Use it only when the skill ships inside a plugin and you need the plugin root specifically.
 
 ```yaml
 hooks:
@@ -1268,29 +1364,30 @@ hooks:
     - matcher: "Bash"
       hooks:
         - type: command
-          command: "${CLAUDE_PLUGIN_ROOT}/scripts/validate.sh"
+          command: "${CLAUDE_SKILL_DIR}/scripts/validate.sh"
 ```
 
-On a user's machine:
-- Linux/macOS: `/Users/alice/.claude/skills/my-skill`
-- Windows: `C:\Users\alice\.claude\skills\my-skill`
+```bash
+# In the body, for injection or instructions:
+python3 ${CLAUDE_SKILL_DIR}/scripts/visualize.py .
+```
 
-The variable ensures paths work regardless of where the skill is installed.
+For most standalone skills, reach for `${CLAUDE_SKILL_DIR}`.
 
 ---
 
 ## 12. Context Forking & Sub-Agents
 
-Context forking (Claude Code 2.1+) allows a skill to spawn an isolated sub-agent.
+Context forking allows a skill to run its body as a task inside an isolated sub-agent.
 
 ### How Context Forking Works
 
 ```yaml
 ---
 name: deep-analysis
+description: Research a topic thoroughly across the codebase.
 context: fork
 agent: Explore
-allowed-tools: Read, Glob, Grep
 ---
 
 Analyze the codebase thoroughly.
@@ -1298,43 +1395,40 @@ Analyze the codebase thoroughly.
 
 When invoked:
 
-1. **Main agent** receives user's request
-2. **Sub-agent spawns** with isolated context
-3. **Sub-agent executes** the skill independently
-4. **Only result returns** to main agent
+1. **Main agent** receives the user's request
+2. A **new isolated context** is created
+3. The **sub-agent** receives the skill body as its task prompt and executes it
+4. The `agent` field determines the execution environment (system prompt, tools, permissions)
+5. **Only the summarized result** returns to the main conversation
+
+> The skill body becomes the sub-agent's prompt, so `context: fork` only makes sense for skills that contain an actionable **task**. A pure-reference skill ("use these API conventions") forked this way gives the sub-agent guidelines but nothing to do, and it returns nothing useful.
 
 ### Benefits
 
 | Benefit | Why It Matters |
 |---|---|
-| **Isolation** | Sub-agent's exploration doesn't clutter main conversation |
-| **Tool scoping** | Sub-agent can have restricted tool access |
-| **Token budget** | Sub-agent has its own context window |
+| **Isolation** | Sub-agent's exploration doesn't clutter the main conversation |
+| **Tool scoping** | The chosen agent type can have restricted tool access |
+| **Token budget** | The sub-agent has its own context window |
 | **Parallel processing** | Multiple sub-agents can run independently |
 
 ### Sub-Agent Types
 
-| Type | Best For | Model | Available Tools |
-|---|---|---|---|
-| **Explore** | Read-only codebase analysis | Haiku (efficient) | Read, Glob, Grep |
-| **Plan** | Planning and analysis tasks | Sonnet | Read, Bash |
-| **general-purpose** | Full capabilities | Opus | All tools |
-| **Custom** | Domain-specific agents | Configurable | Configurable |
+| Type | Best For | Notes |
+|---|---|---|
+| **Explore** | Read-only codebase analysis | Read-optimized; skips CLAUDE.md and git status to keep context small |
+| **Plan** | Planning and analysis | Also skips CLAUDE.md and git status |
+| **general-purpose** | Full capabilities (default if `agent` omitted) | Loads CLAUDE.md |
+| **Custom** | Domain-specific agents from `.claude/agents/` | Configurable |
 
-### Important Limitation
+> The official docs don't pin each built-in agent to a fixed model, so treat any "Explore = Haiku / Opus = general" mapping you see elsewhere as unverified. What *is* documented is that Explore and Plan skip CLAUDE.md/git status for a smaller context, while a forked skill using them sees only the SKILL.md content plus the agent's own system prompt.
 
-**Known issue (GitHub #17283):** `context: fork` and `agent:` fields are **ignored when a skill is invoked via the Skill tool** (programmatic/auto-invocation).
+### Behavior under automatic invocation (verify locally)
 
-The skill runs in the main conversation instead.
+The interaction between `context: fork` and *automatic* (model-driven) invocation has historically varied across Claude Code versions, and some older guides claim fork is silently ignored unless you use the `/skill-name` command. Current docs show forked skills being auto-loaded via their `description`, so **don't assume either way — test it in your installed version.**
 
-**Workaround:** For reliable forking, define the skill as a custom agent in `.claude/agents/` instead.
-
-**Currently works:**
-- Explicit `/skill-name` slash command invocation ✓
-
-**Doesn't work:**
-- Automatic semantic activation
-- Programmatic Skill tool calls
+- **Reliable today:** explicit `/skill-name` invocation of a forked skill.
+- **If auto-fork misbehaves in your version:** define the behavior as a custom agent in `.claude/agents/` and reference it, which is the most predictable path.
 
 ### Example: Isolated Code Review
 
@@ -1442,6 +1536,8 @@ Always use **fully qualified names** to avoid "tool not found" errors:
 ```
 
 Format: `ServerName:tool_name` (case-sensitive)
+
+> This format is confirmed by Anthropic's official best-practices guide (e.g. `BigQuery:bigquery_schema`, `GitHub:create_issue`). Without the server prefix, Claude may fail to locate the tool when multiple MCP servers are connected.
 
 ### Error Handling for MCP Tools
 
@@ -1626,6 +1722,52 @@ If all methods fail:
 
 ## 15. Testing & Iteration
 
+### Build Evaluations First (official recommendation)
+
+Anthropic's strongest testing guidance: **write evaluations before you write extensive instructions.** This keeps the skill aimed at real failures rather than imagined ones.
+
+1. **Identify gaps:** run Claude on representative tasks *without* the skill. Document the specific failures or missing context.
+2. **Create evaluations:** build at least **three** scenarios that test those gaps.
+3. **Establish a baseline:** measure performance without the skill.
+4. **Write minimal instructions:** just enough to address the gaps and pass the evals.
+5. **Iterate:** re-run, compare against baseline, refine.
+
+An eval is just a task with an expected-behavior rubric — for example:
+
+```json
+{
+  "skills": ["processing-pdfs"],
+  "query": "Extract all text from this PDF and save it to output.txt",
+  "files": ["test-files/document.pdf"],
+  "expected_behavior": [
+    "Reads the PDF using an appropriate library or CLI tool",
+    "Extracts text from every page without skipping any",
+    "Saves readable text to output.txt"
+  ]
+}
+```
+
+There's no built-in runner; you supply the harness (or have Claude write one). Evals are your source of truth for whether the skill actually helps.
+
+### The Claude A / Claude B Loop
+
+The most effective authoring process uses Claude to build skills for Claude:
+
+- **Claude A** is the author — it helps you write and refine the SKILL.md (Claude understands the skill format natively; you don't need a special prompt).
+- **Claude B** is a fresh instance with the skill loaded that performs real tasks.
+- You **observe Claude B**, then bring concrete observations back to Claude A: "When I asked for a regional report, Claude B forgot to filter test accounts even though the skill mentions it — make that rule more prominent." Repeat.
+
+Watch how Claude B actually navigates the skill: unexpected file-read order, missed references, sections it never opens (cut them), or a file it leans on so heavily it belongs in SKILL.md.
+
+### Test Across Every Model You'll Use
+
+A skill is an *addition* to a model, so its effectiveness depends on the model. Test with each one you'll run it on:
+- **Haiku:** is there *enough* guidance?
+- **Sonnet:** is it clear and efficient?
+- **Opus:** does it avoid over-explaining things the model already knows?
+
+What's perfect for Opus may underspecify for Haiku. Aim for instructions that work across all of them.
+
 ### Three Levels of Testing Rigor
 
 | Approach | Best For | Effort |
@@ -1704,11 +1846,11 @@ With skill:
 
 ### Success Criteria
 
-**Quantitative targets:**
-- Skill triggers on 80-90% of relevant queries
-- Completes workflow in expected number of tool calls
-- 0 failed API calls per workflow
-- Context usage reduced by 30-50%
+**Quantitative signals** (illustrative — set your own thresholds against your baseline, these are not official benchmarks):
+- Skill triggers reliably on relevant queries and stays quiet on unrelated ones
+- Workflow completes in roughly the expected number of tool calls
+- Fewer failed/abandoned tool calls than the no-skill baseline
+- Lower total context/token use than re-explaining the procedure each time
 
 **Qualitative targets:**
 - Users don't need to prompt Claude about next steps
@@ -1861,10 +2003,13 @@ ls -la ~/.claude/skills/my-skill/SKILL.md
 - Host skills in a `skills/` directory
 - Users clone and copy to their skills folder
 
-**Option 3: Organization Deployment** (Claude Code 2.1+)
-- Admins deploy skills workspace-wide
-- Automatic updates
-- Centralized management
+**Option 3: Plugins**
+- Bundle skills (plus agents, hooks, MCP servers) in a plugin's `skills/` directory
+- Distribute via a plugin marketplace; users install with `/plugin`
+
+**Option 4: Organization Deployment**
+- Admins deploy skills organization-wide through [managed settings](https://code.claude.com/docs/en/settings#settings-files)
+- Centralized management; enterprise-scoped skills override personal, which override project
 
 ### Sharing Checklist
 
@@ -1908,30 +2053,32 @@ Before you start building:
 
 As you build:
 
-- [ ] Folder named in kebab-case (`my-skill`)
+- [ ] Folder named in kebab-case (`my-skill`) — this is what sets the `/command` name
 - [ ] `SKILL.md` exists (exact spelling, case-sensitive)
 - [ ] YAML frontmatter has `---` delimiters
 - [ ] No XML tags (`< >`) in frontmatter
-- [ ] `name` field matches folder name
-- [ ] `description` includes WHAT and WHEN
-- [ ] Instructions are clear and actionable
+- [ ] `description` (third person) includes WHAT and WHEN; key use case first
+- [ ] Trigger phrases in `description`/`when_to_use`
+- [ ] Instructions written as standing rules (they persist all session)
+- [ ] Degrees of freedom matched to task fragility
 - [ ] Examples are concrete and real-world
 - [ ] Error cases covered in troubleshooting
-- [ ] Reference files linked properly
-- [ ] SKILL.md under 5,000 words
+- [ ] Reference files linked properly, one level deep
+- [ ] SKILL.md body under ~500 lines (move detail to `references/`)
+- [ ] No time-sensitive info (or in an "old patterns" section)
 - [ ] Consistent terminology throughout
 
 ### Testing Checklist
 
 Before sharing:
 
-- [ ] Tested triggering on obvious requests
-- [ ] Tested on paraphrased requests
+- [ ] At least three evaluations created; baseline measured without the skill
+- [ ] Tested triggering on obvious and paraphrased requests
 - [ ] Verified doesn't trigger on unrelated topics
 - [ ] Functional tests pass
+- [ ] Tested with each model you'll use (Haiku / Sonnet / Opus)
 - [ ] Tool integration works (if applicable)
 - [ ] Error handling tested
-- [ ] Performance acceptable
 
 ### Pre-Upload Checklist
 
@@ -1962,42 +2109,46 @@ After release:
 
 ## Complete Frontmatter Template (Copy-Paste Ready)
 
+All fields are optional in Claude Code; `description` is what makes the skill discoverable. The command name comes from the folder, not `name`.
+
 ```yaml
 ---
-# REQUIRED
-name: your-skill-name
-description: >
-  What it does. Use when [trigger phrases].
+# DISCOVERY (recommended)
+name: your-skill-name            # optional display label; folder name sets the /command
+description: What it does. Use when [trigger phrases].
+when_to_use: Extra trigger phrases / example requests.
+paths: "src/**/*.ts"             # optional: auto-activate only for matching files
 
-# OPTIONAL METADATA
-license: MIT
-compatibility: "Requires Claude Code with network access"
-metadata:
-  author: Your Name
-  version: 1.0.0
-  mcp-server: server-name
-  category: productivity
-  tags: [automation, workflow]
-  documentation: https://example.com/docs
-  support: support@example.com
+# INVOCATION CONTROL
+disable-model-invocation: false  # true = user-only (/name), removed from Claude's context
+user-invocable: true             # false = hidden from / menu
 
-# OPTIONAL EXECUTION CONTROL
+# ARGUMENTS (for /name use)
+argument-hint: "[issue-number]"
+arguments: [issue, branch]       # -> $issue / $branch, or $0/$1, or $ARGUMENTS
+
+# TOOL & MODEL CONTROL
+allowed-tools: Read Grep         # pre-approve (does NOT restrict the toolset)
+disallowed-tools: AskUserQuestion
+model: inherit                   # same values as /model, or `inherit`
+effort: high                     # low | medium | high | xhigh | max
+shell: bash                      # bash (default) | powershell
+
+# SUBAGENT EXECUTION
 context: fork
-agent: Explore
-disable-model-invocation: false
-user-invocable: true
-allowed-tools: Read, Write, Bash
-model: claude-sonnet
+agent: Explore                   # Explore | Plan | general-purpose | custom
 
-# OPTIONAL GOVERNANCE (2.1+)
+# LIFECYCLE HOOKS
 hooks:
   PreToolUse:
     - matcher: "Bash"
       hooks:
         - type: command
-          command: "${CLAUDE_PLUGIN_ROOT}/scripts/validate.sh"
+          command: "${CLAUDE_SKILL_DIR}/scripts/validate.sh"
 ---
 ```
+
+> `license`, `compatibility`, and arbitrary `metadata:` are **not interpreted by Claude Code** — keep them only as inert documentation if you want them, separate from the functional fields above.
 
 ---
 
@@ -2035,5 +2186,5 @@ Skill isn't working?
 
 ---
 
-*This comprehensive guide merges Anthropic's official design principles, Claude Code 2.1 advanced features, and real-world skill development patterns. Version: February 2026.*
+*This comprehensive guide merges Anthropic's official design principles, Claude Code advanced features, and real-world skill development patterns. Revised and fact-checked against official Anthropic documentation, May 2026.*
 
